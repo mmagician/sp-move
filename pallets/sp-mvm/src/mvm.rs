@@ -16,7 +16,6 @@ where
     E: EventHandler,
 {
     let store: VmStorageAdapter<T> = Default::default();
-    // let event_handler = E::default();
     Mvm::new(store, event_handler)
 }
 

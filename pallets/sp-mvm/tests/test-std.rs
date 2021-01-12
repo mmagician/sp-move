@@ -3,6 +3,7 @@ use frame_support::assert_ok;
 use move_core_types::identifier::Identifier;
 use move_core_types::language_storage::ModuleId;
 use move_vm::data::*;
+use move_vm::types::ScriptArg;
 use move_vm_runtime::data_cache::RemoteCache;
 
 mod mock;
@@ -40,11 +41,10 @@ fn call_execute_script(origin: Origin) {
     const TEST_VALUE: u64 = 42;
 
     // prepare arguments:
-    // let args = vec![ScriptArg::U64(TEST_VALUE)];
-    let args = vec![TEST_VALUE];
+    let args = vec![ScriptArg::U64(TEST_VALUE)];
 
     // execute VM tx:
-    let result = Mvm::execute(origin, script_bc(), Some(args));
+    let result = Mvm::execute(origin, script_bc(), Some(args), None);
     eprintln!("result: {:?}", result);
     assert_ok!(result);
 
