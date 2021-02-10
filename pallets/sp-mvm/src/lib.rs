@@ -4,6 +4,15 @@
 #[macro_use]
 extern crate log;
 
+use balances::PositiveImbalance;
+use frame_support::traits::ExistenceRequirement;
+use frame_support::traits::Get;
+use frame_support::traits::Currency;
+use frame_support::traits::ReservableCurrency;
+use frame_support::traits::Imbalance;
+
+use frame_support::traits::WithdrawReason;
+use frame_support::traits::WithdrawReasons;
 use sp_std::prelude::*;
 use codec::{FullCodec, FullEncode};
 use frame_support::{decl_module, decl_storage, dispatch};
@@ -17,6 +26,9 @@ use move_vm::types::ScriptArg;
 use move_core_types::language_storage::TypeTag;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::language_storage::CORE_CODE_ADDRESS;
+
+use pallet_balances as balances;
+use frame_system as system;
 
 pub mod addr;
 pub mod event;
@@ -37,10 +49,30 @@ use mvm::TryCreateMoveVmWrapped;
 use mvm::VmWrapperTy;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Trait: frame_system::Trait {
+pub trait Trait:
+    frame_system::Trait + balances::Trait + pallet_transaction_payment::Trait
+{
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    // /// The currency in which the crowdfunds will be denominated
+    // type Currency: ReservableCurrency<Self::AccountId>;
+    // type Currency: Currency<Self::AccountId>;
 }
+
+type CurrencyOf<T> = <T as pallet_transaction_payment::Trait>::Currency;
+type PositiveImbalanceOf<T> = <<T as pallet_transaction_payment::Trait>::Currency as Currency<
+    <T as frame_system::Trait>::AccountId,
+>>::PositiveImbalance;
+
+type AccountIdOf<T> = <T as frame_system::Trait>::AccountId;
+// type BalanceOf<T> = <T as balances::Trait>::Balance;
+type BalanceOf<T> = <<T as pallet_transaction_payment::Trait>::Currency as Currency<
+    <T as system::Trait>::AccountId,
+>>::Balance;
+// type AccountStoreOf<T> = <T as balances::Trait>::AccountStore;
+type AccountStoreOf<T> = <T as balances::Trait>::AccountStore;
+// type BalanceOf<T> = <<T as Trait>::Currency as Currency<AccountIdOf<T>>>::Balance;
 
 // The pallet's runtime storage items.
 // https://substrate.dev/docs/en/knowledgebase/runtime/storage
@@ -66,6 +98,73 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        #[weight = 10_000]
+        pub fn trans_test(origin, target: T::AccountId, balance: BalanceOf<T>){
+            let who = ensure_signed(origin)?;
+            // use pallet_balances::AccountData;
+            // use pallet_balances::*;
+            // // AccountData<BalanceOf<T>>::
+            // // let mut account_data = crate::Account::<T>::get(&account.id);
+            // // let a = pallet_balances::Account::<T>::get(&account.id);
+            // let a = Self::set_balance();
+            // <Self as pallet_balances::Trait>::Account::get(&origin);
+
+            // <T as balances::Trait>::Balance;
+            // BalanceOf::<T>;
+            // AccountStoreOf::<T>::get(&origin);
+            // let foo = <AccountStoreOf::<T> as frame_support::storage::StorageMap<
+            //     <T as system::Trait>::AccountId,
+            //     <T as system::Trait>::AccountData
+            // >>::get(&who);
+
+            // let foo = CurrencyOf::<T>::get(&who);
+
+            // let val = Get::<BalanceOf<T>>::get();
+            // let val = BalanceOf::<T>::get(&who);
+
+
+            {
+                let balance = <T as pallet_transaction_payment::Trait>::Currency::total_balance(&who);
+                // 1152921504481846822
+                error!("BALANCE:: {:?}", balance);
+                #[cfg(feature = "std")] eprintln!("BALANCE:: {:?}", balance);
+            }
+
+
+            <T as pallet_transaction_payment::Trait>::Currency::withdraw(
+                &who, balance, WithdrawReasons::from(WithdrawReason::Transfer), ExistenceRequirement::AllowDeath )?;
+
+            {
+                let balance = <T as pallet_transaction_payment::Trait>::Currency::total_balance(&who);
+                // 1152879504481846822
+                error!("BALANCE:: {:?}", balance);
+                #[cfg(feature = "std")] eprintln!("BALANCE:: {:?}", balance);
+            }
+
+            // let plus:PositiveImbalanceOf<T> = PositiveImbalance::new(balance).into();
+            // let plus = PositiveImbalanceOf::<T>::new(balance);
+            let plus = <T as pallet_transaction_payment::Trait>::Currency::deposit_creating(&who, BalanceOf::<T>::from(9999999));
+            trace!("PLUS:: {:?}", plus.peek());
+
+            let res = <T as pallet_transaction_payment::Trait>::Currency::settle(
+                &who, plus, WithdrawReasons::from(WithdrawReason::Transfer), ExistenceRequirement::AllowDeath);
+            if let Err(res) = res {
+                // error!("RES ERROR");
+                error!("RES:: {:?}", res.peek());
+                // #[cfg(feature = "std")] eprintln!("RES:: {:?}", res);
+            }
+
+            // <T as pallet_transaction_payment::Trait>::Currency::transfer(
+            //     &who, &who, balance, ExistenceRequirement::AllowDeath )?;
+
+            {
+                let balance = <T as pallet_transaction_payment::Trait>::Currency::total_balance(&who);
+                // 1152879504481846822
+                error!("BALANCE:: {:?}", balance);
+                #[cfg(feature = "std")] eprintln!("BALANCE:: {:?}", balance);
+            }
+        }
 
         #[weight = 10_000]
         // Temprorally args changed to just u64 numbers because of troubles with codec & web-client...
