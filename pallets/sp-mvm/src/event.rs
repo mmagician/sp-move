@@ -13,7 +13,7 @@ decl_event!(
     {
         // Event documentation should end with an array that provides descriptive names for event parameters.
         /// Event provided by Move VM
-        /// [account, ty_tag, message, module]
+        /// [raw_account, type_tag, message, module]
         Event(AccountAddress, TypeTag, Vec<u8>, Option<ModuleId>),
 
         /// Event about successful move-module publishing
@@ -33,10 +33,6 @@ pub trait DepositMoveEvent {
 pub struct EventWriter<F>(F);
 
 pub struct MoveEventArguments {
-    // pub guid: Vec<u8>,
-    // pub seq_num: u64,
-    // pub ty_tag: TypeTag,
-    // pub message: Vec<u8>,
     pub addr: AccountAddress,
     pub ty_tag: TypeTag,
     pub message: Vec<u8>,
@@ -45,7 +41,6 @@ pub struct MoveEventArguments {
 
 impl<F: Fn(MoveEventArguments)> EventHandler for EventWriter<F> {
     #[inline]
-    // fn on_event(&self, guid: Vec<u8>, seq_num: u64, ty_tag: TypeTag, message: Vec<u8>) {
     fn on_event(
         &self,
         addr: AccountAddress,
