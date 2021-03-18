@@ -6795,6 +6795,7 @@ version = "0.2.0"
 dependencies = [
  "alt_serde",
  "bcs",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

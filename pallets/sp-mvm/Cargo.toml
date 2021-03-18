@@ -66,10 +66,10 @@ sp-core = { default-features = false, version = "2.0.0" }
 timestamp = { default-features = false, version = "2.0.0", package = "pallet-timestamp" }
 # logging, `sp_runtime::print`:
 sp-runtime = { default-features = false, version = "2.0.0" }
-
+# store one vm statically:
 once_cell = { default-features = false, version = "1.5.2" }
-
-# num-traits = { version = "0.2.8", default-features = false }
+# benchmarking:
+frame-benchmarking = { version = "2.0.0", default-features = false, optional = true }
 
 
 [dev-dependencies]
@@ -81,7 +81,10 @@ serde = { version = "1", default-features = false, package = "alt_serde", featur
 
 
 [features]
-default = [ "std" ]
+default = [
+    "std",
+    # "runtime-benchmarks"
+]
 std = [
     "log/std",
     "once_cell/std",
@@ -100,4 +103,8 @@ std = [
     "lcs/std",
     "serde/std",
     "sp-io/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
 ]

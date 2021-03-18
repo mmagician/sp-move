@@ -25,6 +25,7 @@ pub mod mvm;
 pub mod oracle;
 pub mod result;
 pub mod storage;
+mod benchmarking;
 
 use result::Error;
 pub use event::Event;
