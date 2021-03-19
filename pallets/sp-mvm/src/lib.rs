@@ -6,10 +6,15 @@ extern crate log;
 
 use core::convert::TryInto;
 use core::convert::TryFrom;
+use frame_support::traits::ExistenceRequirement;
+use frame_support::traits::WithdrawReason;
+use frame_support::traits::WithdrawReasons;
 use move_vm::data::ExecutionContext;
+use sp_runtime::traits::Zero;
 use sp_std::prelude::*;
 use codec::{FullCodec, FullEncode};
 use frame_support::{decl_module, decl_storage, dispatch};
+use frame_support::traits::Currency;
 use frame_system::{ensure_signed, ensure_root};
 use move_vm::mvm::Mvm;
 use move_vm::Vm;
@@ -39,10 +44,11 @@ use mvm::TryCreateMoveVmWrapped;
 use mvm::VmWrapperTy;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Trait: frame_system::Trait + timestamp::Trait {
+pub trait Trait: frame_system::Trait + timestamp::Trait + balances::Trait {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     // type BlockNumber: Into<u64>;
+    // type Currency: Currency<Self::AccountId>;
 }
 
 // The pallet's runtime storage items.
@@ -60,6 +66,10 @@ decl_storage! {
      }
 }
 
+// impl<T: Trait + balances::Trait> Module<T> where T::AccountId: From<u64> {
+//     fn balances_proxy() -> BalancesProxy<T>
+// }
+
 // Dispatchable functions allows users to interact with the pallet and invoke state changes.
 // These functions materialize as "extrinsics", which are often compared to transactions.
 // Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -67,12 +77,61 @@ decl_module! {
      pub struct Module<T: Trait> for enum Call
         where origin: T::Origin,
               T::BlockNumber: TryInto<u64>,
+              <T as balances::Trait>::Balance: TryFrom<u64>,
+            //   <T as balances::Trait>::Balance: From<u64>,
               // <<T as frame_system::Trait>::BlockNumber as TryInto<u64>>::Error: std::fmt::Debug
+
+              // T: Currency<<T as frame_system::Trait>::AccountId>,
+              // <T as Currency<T::AccountId>>::NegativeImbalance: core::fmt::Display,
+              // <T as Currency<T::AccountId>>::NegativeImbalance: core::fmt::Debug,
               {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        #[weight = 10_000]
+        pub fn test_withdraw(origin, from_a: T::AccountId, from_b: T::AccountId, value :T::Balance) -> dispatch::DispatchResult {
+            let account = ensure_signed(origin)?;
+
+            // get NegativeImbalance:
+            let a = <balances::Module<T> as Currency<T::AccountId>>::withdraw(&from_a, value, WithdrawReason::Transfer.into(), ExistenceRequirement::KeepAlive)?;
+
+            let b = <balances::Module<T> as Currency<T::AccountId>>::withdraw(&from_b, value, WithdrawReason::Transfer.into(), ExistenceRequirement::KeepAlive)?;
+            Ok(())
+        }
+
+        #[weight = 10_000]
+        pub fn test_deposit(origin, to: T::AccountId, value :T::Balance) -> dispatch::DispatchResult {
+            let account = ensure_signed(origin)?;
+
+            // let value :T::Balance = Zero::zero();
+            // let value :T::Balance = 10000_u64.try_into().ok().unwrap();
+            // let res = <balances::Module<T> as Currency<T::AccountId>>::burn(value);
+            // let res = <balances::Module<T> as Currency<T::AccountId>>::issue(value);
+
+            // // apply to this (or any) account
+            // let c1 = <balances::Module<T> as Currency<T::AccountId>>::resolve_into_existing(&account, a);
+            // let c2 = <balances::Module<T> as Currency<T::AccountId>>::resolve_creating(&account, b);
+            // Mints `value` to the free balance of `to`.
+            let positive = <balances::Module<T> as Currency<T::AccountId>>::deposit_into_existing(&to, value)?;
+
+            Ok(())
+        }
+
+        #[weight = 10_000]
+        pub fn test_acc_data(origin, value :T::Balance) -> dispatch::DispatchResult {
+            let account = ensure_signed(origin)?;
+            // balances::Module::<T>::get(&account);
+
+            let mut data: balances::AccountData<T::Balance> = balances::Account::<T>::get(&account);
+            debug!("account data: {:#?}", data);
+
+            data.free = 42000000.into();
+            let v = balances::Account::<T>::insert(&account, data);
+
+            Ok(())
+        }
 
         #[weight = 10_000]
         pub fn execute(origin, tx_bc: Vec<u8>) -> dispatch::DispatchResultWithPostInfo {
@@ -81,16 +140,22 @@ decl_module! {
             let gas = Self::get_move_gas_limit()?;
 
             let tx = {
-                let signers = if transaction.signers_count() == 0 {
-                    Vec::with_capacity(0)
-                } else if let Ok(account) = ensure_signed(origin) {
-                    debug!("executing `execute` with signed {:?}", account);
-                    let sender = addr::account_to_bytes(&account);
-                    debug!("converted sender: {:?}", sender);
-                    vec![AccountAddress::new(sender)]
-                } else {
-                    // TODO: support multiple signers
-                    Vec::with_capacity(0)
+                let account = ensure_signed(origin)?;
+                let signers = match transaction.signers_count() {
+                    0 => Vec::with_capacity(0),
+                    1 => {
+                        debug!("executing `execute` with signed {:?}", account);
+                        let sender = addr::account_to_bytes(&account);
+                        debug!("converted sender: {:?}", sender);
+                        vec![AccountAddress::new(sender)]
+                    },
+                    _required_signs => {
+                        /* TODO: get all signers by multisignature */
+                        debug!("executing `execute` with signed {:?}", account);
+                        let sender = addr::account_to_bytes(&account);
+                        debug!("converted sender: {:?}", sender);
+                        vec![AccountAddress::new(sender)]
+                    }
                 };
 
                 if transaction.signers_count() as usize != signers.len() {

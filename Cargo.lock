@@ -6803,6 +6803,7 @@ dependencies = [
  "move-vm-types",
  "mvm",
  "once_cell 1.5.2",
+ "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
  "sp-core",
